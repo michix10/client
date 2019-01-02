@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 set -e -u -o pipefail
-set -x
 
 # This is the script responsible for launching keybase on boot on Linux. A
 # .desktop file will be created by the service on first launch in
@@ -56,7 +55,6 @@ init_mountdir() {
 
     mountdir="$(keybase config get -d -b mountdir 2> /dev/null)"
 
-    # TODO Go doesn't know about this...
     export KEYBASE_MOUNTDIR=$mountdir
     mkdir -p "$KEYBASE_MOUNTDIR"
 }
