@@ -7,13 +7,6 @@ set -x
 # .desktop file will be created by the service on first launch in
 # ~/.config/autostart/ to invoke this script.
 
-runtime_dir="${XDG_RUNTIME_DIR:-$HOME/.config}/keybase"
-mkdir -p "$runtime_dir"
-logdir="${XDG_CACHE_HOME:-$HOME/.cache}/keybase"
-mkdir -p "$logdir"
-startup_token="$runtime_dir/startup_mode"
-redirector_log="$logdir/keybase.redirector.log"
-
 set_autostart_vars() {
     # To keep the autostart file stable, so that we don't have to stomp on user
     # edits, we group everything we need to do on autostart under this one
@@ -24,7 +17,7 @@ set_autostart_vars() {
     fi
 }
 
-set_empty_mountdir_to_default() {
+init_mountdir() {
     # Set the mount point to a default value if a) nothing is set yet,
     # or b) both are set to the old default.
     default=""
@@ -62,7 +55,10 @@ set_empty_mountdir_to_default() {
     fi
 
     mountdir="$(keybase config get -d -b mountdir 2> /dev/null)"
+
+    # TODO Go doesn't know about this...
     export KEYBASE_MOUNTDIR=$mountdir
+    mkdir -p "$KEYBASE_MOUNTDIR"
 }
 
 # Don't make the mountpoint until after unmounting/killing the
@@ -151,10 +147,6 @@ run_redirector() {
     return 0
   fi
 
-  nohup keybase-redirector /keybase >> "$redirector_log" 2>&1 &
-}
-
-redirector_enabled() {
   # An older version of post_install.sh could have made a redirector log
   # here that's owned by root.  If we can't write to it, then just nuke it
   # and overwrite.
@@ -162,6 +154,11 @@ redirector_enabled() {
     rm -f "$redirector_log"
   fi
 
+  nohup keybase-redirector /keybase >> "$redirector_log" 2>&1 &
+}
+
+# TODO IDEA: make keybase config get take in a default bool so we can get rid of all this nonsense, and do default when rootconfig or wev is not present
+redirector_enabled() {
   rootConfigFile="/etc/keybase/config.json"
   disableConfigKey="disable-root-redirector"
   ! [ -r "$rootConfigFile" ] || ! value=$(keybase -c "$rootConfigFile" config get -d "$disableConfigKey" 2> /dev/null) || ! [ "$value" = "true" ]
@@ -169,12 +166,6 @@ redirector_enabled() {
 
 start_systemd() {
   echo Starting via systemd...
-  # This script is intended to be run after updates, so we need to reload
-  # potentially changed unit files.
-  systemctl --user daemon-reload
-
-  run_redirector
-
   # The keybase.gui.service unit has keybase.service and kbfs.service as
   # dependencies, so we don't have to list them here. But including them lets
   # us report an error if they fail to start. Also prefer `restart` to `start`
@@ -223,8 +214,9 @@ show_cryptosquirrel() {
   fi
 }
 
-main() {
-  set_empty_mountdir_to_default
+startup_all() {
+  init_mountdir
+  mountdir=$KEYBASE_MOUNTDIR
 
   set_autostart_vars
 
@@ -237,7 +229,6 @@ main() {
   # 2) Users have come to expect that run_keybase will restart everything, and
   #    we tell them to do it after updates.
   kill_all
-  mkdir -p "$mountdir"
 
   if wants_systemd ; then
       start_systemd
@@ -250,24 +241,25 @@ main() {
   show_cryptosquirrel
 }
 
-run_config_mountdir=""
-run_redirector_enabled=""
+runtime_dir="${XDG_RUNTIME_DIR:-$HOME/.config}/keybase"
+mkdir -p "$runtime_dir"
+logdir="${XDG_CACHE_HOME:-$HOME/.cache}/keybase"
+mkdir -p "$logdir"
+startup_token="$runtime_dir/startup_mode"
+redirector_log="$logdir/keybase.redirector.log"
+
 while getopts ":mr" opt; do
   case "${opt}" in
-    m) run_config_mountdir=1
-       ;;
-    r) run_redirector_enabled=1
-       ;;
+    m)  init_mountdir
+        exit
+        ;;
+    r)  redirector_enabled
+        exit
+        ;;
     \?) echo "Invalid arguments to run_keybase."
         exit 1
         ;;
   esac
 done
 
-if [ -n "$run_config_mountdir" ]; then
-    set_empty_mountdir_to_default
-elif [ -n "$run_redirector_enabled" ]; then
-    redirector_enabled
-else
-    main
-fi
+startup_all
