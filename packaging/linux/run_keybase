@@ -6,57 +6,6 @@ set -e -u -o pipefail
 # .desktop file will be created by the service on first launch in
 # ~/.config/autostart/ to invoke this script.
 
-set_autostart_vars() {
-    # To keep the autostart file stable, so that we don't have to stomp on user
-    # edits, we group everything we need to do on autostart under this one
-    # variable, which the autostart file sets.
-    if [ "${KEYBASE_AUTOSTART:-}" = 1 ] ; then
-        export KEYBASE_START_UI=hideWindow
-        export XDG_CURRENT_DESKTOP=Unity
-    fi
-}
-
-# Outputs the mountdir to stdout
-init_mountdir() {
-    # Set the mount point to a default value if a) nothing is set yet,
-    # or b) both are set to the old default.
-    default=""
-    oldDefault="${XDG_DATA_HOME:-$HOME/.local/share}/keybase/fs"
-    # Use -d to avoid starting up the keybase background daemon here.
-    # For the new default mountpoint, use /run/user/$UID/keybase/kbfs
-    # if at all possible, but if the system doesn't have
-    # $XDG_RUNTIME_DIR defined, we'll have to fall back to something
-    # in the home directory (putting the user at risk of things like
-    # du and find crawling KBFS...).
-    newDefault="${XDG_RUNTIME_DIR:-$HOME/.config}/keybase/kbfs"
-    if keybase config get -d -b mountdirdefault &> /dev/null ; then
-        # If the current mount directory is still the old default, force
-        # an update to the new default.
-        default="$(keybase config get -d -b mountdirdefault 2> /dev/null)"
-        if [ "$default" = "$oldDefault" ]; then
-            mountdir="$(keybase config get -d -b mountdir 2> /dev/null)"
-            if [ "$mountdir" = "$default" ]; then
-                if fusermount -uz "$mountdir" &> /dev/null ; then
-                    echo "Updating mount directory from $default to $newDefault"
-                fi
-                default=""
-            fi
-        fi
-    fi
-
-    if [ -z "$default" ]; then
-        # The user has no mountpoint configured yet, so pick a default one
-        # and record the default setting in a separate config field, so
-        # later we can tell whether the user changed it away from the
-        # default or not.
-        mountdir="$newDefault"
-        keybase config set mountdir "$mountdir"
-        keybase config set mountdirdefault "$mountdir"
-    fi
-
-    keybase config get -d -b mountdir 2> /dev/null
-}
-
 # NOTE: This logic is duplicated in systemd_linux.go. If you make changes here,
 # keep them in sync.
 systemd_running() {
@@ -88,10 +37,6 @@ systemd_running() {
     fi
 }
 
-was_started_with_systemd() {
-    [ -e "$startup_token" ] && [ "$(cat "$startup_token")" = "systemd" ]
-}
-
 # Defaults to true unless KEYBASE_SYSTEMD=0.
 wants_systemd() {
     [ "${KEYBASE_SYSTEMD:-1}" != "0" ] && systemd_running
@@ -112,14 +57,21 @@ kill_all() {
     # Remove any existing legacy mount.  This should never happen
     # because it should have already been done by post_install.sh.
     # Just in case, let the user know how to fix it.
-    echo Unmounting /keybase.  Run `sudo rmdir /keybase; sudo ln -s /opt/keybase/mount-readme /keybase; sudo chown root:root /keybase` and then run this command again.
+    echo Unmounting /keybase. Run `sudo rmdir /keybase; sudo ln -s /opt/keybase/mount-readme /keybase; sudo chown root:root /keybase` and then run this command again.
     exit -1
   fi
-  if fusermount -uz $mountdir &> /dev/null ; then
-    echo Unmounting $mountdir...
+
+  # mountdir may be empty on the initial install, so don't try to unmount
+  if [ -n "$mountdir" ]; then
+	  # This is redundant in newer versions of kbfsfuse, which catches SIGTERM and
+	  # unmounts the filesystem before exiting.
+	  if fusermount -uz "$mountdir" &> /dev/null ; then
+		echo Unmounting "$mountdir"...
+	  fi
   fi
+
   if killall kbfsfuse &> /dev/null ; then
-    echo Shutting down kbfsfuse...
+    echo Unmounting and shutting down kbfsfuse...
   fi
   if killall keybase &> /dev/null ; then
     echo Shutting down keybase service...
@@ -135,50 +87,48 @@ kill_all() {
   fi
 }
 
-run_redirector() {
-  # Only start the root redirector if it hasn't been explicitly disabled.
-  if ! redirector_enabled; then
+start_systemd() {
+  echo Starting via systemd...
+  systemctl --user import-environment KEYBASE_AUTOSTART
+
+  # The keybase.gui.service unit has keybase.service and kbfs.service as
+  # dependencies, so we don't have to list them here. But including them lets
+  # us report an error if they fail to start. Also prefer `restart` to `start`
+  # so that we don't race against the service shutting down.
+  # kbfs.service will attempt to start the redirector, but it isn't an error if
+  # it fails to start, which happens if it is disabled.
+  systemctl --user restart keybase.service kbfs.service keybase.gui.service
+  write_startup_token "systemd"
+}
+
+run_redirector_in_background() {
+  if ! /usr/bin/keybase --use-root-config-file=true config get --direct --assert-false --assert-ok-on-nil disable-root-redirector; then
     return 0
   fi
-
+  redirector_log="$logdir/keybase.redirector.log"
   # An older version of post_install.sh could have made a redirector log
   # here that's owned by root.  If we can't write to it, then just nuke it
   # and overwrite.
   if [ -e "$redirector_log" ] && [ ! -w "$redirector_log" ]; then
     rm -f "$redirector_log"
   fi
-
   nohup keybase-redirector /keybase >> "$redirector_log" 2>&1 &
 }
 
-# TODO IDEA: make keybase config get take in a default bool so we can get rid of all this nonsense, and do default when rootconfig or wev is not present
-redirector_enabled() {
-  rootConfigFile="/etc/keybase/config.json"
-  disableConfigKey="disable-root-redirector"
-  ! [ -r "$rootConfigFile" ] || ! value=$(keybase -c "$rootConfigFile" config get -d "$disableConfigKey" 2> /dev/null) || ! [ "$value" = "true" ]
-}
-
-start_systemd() {
-  echo Starting via systemd...
-  # The keybase.gui.service unit has keybase.service and kbfs.service as
-  # dependencies, so we don't have to list them here. But including them lets
-  # us report an error if they fail to start. Also prefer `restart` to `start`
-  # so that we don't race against the service shutting down.
-  systemctl --user restart keybase.service keybase-redirector.service kbfs.service keybase.gui.service
-  write_startup_token "systemd"
-}
-
 start_background() {
-  export KEYBASE_RUN_MODE="${KEYBASE_RUN_MODE:-prod}"
-  export KEYBASE_DEBUG=1
-
   echo Launching keybase service...
+
+  export XDG_CURRENT_DESKTOP=Unity
+
+  mkdir -p "$logdir"
+  mkdir -p "$runtime_dir"
+
   # We set the --auto-forked flag here so that updated clients that try to
   # restart this service will know to re-fork it themselves. That's all it does.
-  keybase -d --log-file="$logdir/keybase.service.log" service --auto-forked &>> "$logdir/keybase.start.log" &
+  keybase --debug --use-default-log-file service --auto-forked &>> "$logdir/keybase.start.log" &
   echo Mounting the file system...
-  run_redirector
-  kbfsfuse -debug -log-to-file "$mountdir" &>> "$logdir/keybase.start.log" &
+  run_redirector_in_background
+  kbfsfuse -debug -log-to-file &>> "$logdir/keybase.start.log" &
   echo Launching Keybase GUI...
   /opt/keybase/Keybase &>> "$logdir/Keybase.app.log" &
   write_startup_token "background"
@@ -209,9 +159,12 @@ show_cryptosquirrel() {
 }
 
 startup_all() {
-  mountdir="$(init_mountdir)"
+  # Do not exit early if the mountdir has not been set yet by the service
+  mountdir="$(keybase config get -d -b mountdir || true)"
 
-  set_autostart_vars
+  logdir="${XDG_CACHE_HOME:-$HOME/.cache}/keybase"
+  runtime_dir="${XDG_RUNTIME_DIR:-$HOME/.config}/keybase"
+  startup_token="$runtime_dir/startup_mode"
 
   warn_if_weird_path
 
@@ -229,30 +182,9 @@ startup_all() {
       start_background
   fi
 
-  echo 'Success!'
+  echo 'run_keybase: Success!'
 
   show_cryptosquirrel
 }
-
-runtime_dir="${XDG_RUNTIME_DIR:-$HOME/.config}/keybase"
-mkdir -p "$runtime_dir"
-logdir="${XDG_CACHE_HOME:-$HOME/.cache}/keybase"
-mkdir -p "$logdir"
-startup_token="$runtime_dir/startup_mode"
-redirector_log="$logdir/keybase.redirector.log"
-
-while getopts ":mr" opt; do
-  case "${opt}" in
-    m)  init_mountdir
-        exit
-        ;;
-    r)  redirector_enabled
-        exit
-        ;;
-    \?) echo "Invalid arguments to run_keybase."
-        exit 1
-        ;;
-  esac
-done
 
 startup_all
