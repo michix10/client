@@ -16,6 +16,7 @@ set_autostart_vars() {
     fi
 }
 
+# Outputs the mountdir to stdout
 init_mountdir() {
     # Set the mount point to a default value if a) nothing is set yet,
     # or b) both are set to the old default.
@@ -53,14 +54,8 @@ init_mountdir() {
         keybase config set mountdirdefault "$mountdir"
     fi
 
-    mountdir="$(keybase config get -d -b mountdir 2> /dev/null)"
-
-    export KEYBASE_MOUNTDIR=$mountdir
-    mkdir -p "$KEYBASE_MOUNTDIR"
+    keybase config get -d -b mountdir 2> /dev/null
 }
-
-# Don't make the mountpoint until after unmounting/killing the
-# previous mount, otherwise `mkdir` will fail.
 
 # NOTE: This logic is duplicated in systemd_linux.go. If you make changes here,
 # keep them in sync.
@@ -73,7 +68,8 @@ systemd_running() {
 
     # There are also systems that have systemd running at the system level (so
     # they pass the check above), but not at the user level, for whatever
-    # reason. Ask the systemd user daemon for its status directly, to be sure
+    # reason. (e.g., centos)
+    # Ask the systemd user daemon for its status directly, to be sure
     # it's running. Note that "degraded" just means some service has failed to
     # start -- it could be anything, so we treat it the same as "running". (We
     # have to `|| true` to ignore non-zero exit status errors also for that
@@ -213,8 +209,7 @@ show_cryptosquirrel() {
 }
 
 startup_all() {
-  init_mountdir
-  mountdir=$KEYBASE_MOUNTDIR
+  mountdir="$(init_mountdir)"
 
   set_autostart_vars
 

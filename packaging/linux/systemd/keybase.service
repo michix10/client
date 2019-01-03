@@ -11,7 +11,7 @@ EnvironmentFile=-%t/keybase/keybase.env
 
 # Configure mountdir and set environment variables
 # failure is OK for distributions that don't package run_keybase
-ExecStartPre=-/usr/bin/run_keybase -m -s
+ExecStartPre=-/usr/bin/run_keybase -m
 
 ExecStart=/usr/bin/keybase --use-default-log-file --debug service
 
