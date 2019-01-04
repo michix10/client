@@ -6,6 +6,7 @@ package externals
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -60,6 +61,11 @@ func (p *staticProofServices) ListServicesThatAcceptNewProofs() []string {
 		}
 	}
 	return ret
+}
+
+func (p *staticProofServices) ProfileProofSuggestions(ctx context.Context) (ret keybase1.ProfileProofSuggestionsRes, err error) {
+	// xxx what is this for?
+	return ret, fmt.Errorf("not implemented")
 }
 
 // Contains both the statically known services and loads the configurations for
@@ -126,6 +132,14 @@ func (p *proofServices) ListServicesThatAcceptNewProofs() []string {
 		}
 	}
 	return ret
+}
+
+func (p *proofServices) ProfileProofSuggestions(ctx context.Context) (ret keybase1.ProfileProofSuggestionsRes, err error) {
+	p.Lock()
+	defer p.Unlock()
+	p.loadServiceConfigs()
+
+	return ret, fmt.Errorf("not implemented (xx)")
 }
 
 func (p *proofServices) loadServiceConfigs() {

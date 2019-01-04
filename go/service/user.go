@@ -344,6 +344,45 @@ func (h *UserHandler) UploadUserAvatar(ctx context.Context, arg keybase1.UploadU
 	return avatars.UploadImage(mctx, arg.Filename, nil /* teamname */, arg.Crop)
 }
 
+type ProofSuggestion struct {
+	Key           string
+	ProfileText   string // "Prove your Twitter", "Add a PGP key"
+	ProfileIcon   string
+	PickerIcon    string
+	PickerText    string // "Twitter", "Your own website", "octodon.xyz"
+	PickerSubtext string // "twitter.com", "Mastodon instance"
+}
+
+func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int) (ret keybase1.ProfileProofSuggestionsRes, err error) {
+	mctx := libkb.NewMetaContext(ctx, h.G()).WithLogTag("US")
+	defer mctx.CTraceTimed("ProfileProofSuggestions", func() error { return err })()
+
+	// xxx todo hide proofs that the user has up, even if they are failing
+	// xxx todo hide those below the fold
+	// xxx todo set ret.ShowMore based on the fold
+
+	// dns, github, hackernews, http, https, reddit, twitter, web.
+	// dns, github, gubble.cloud, gubble.social, hackernews, http, https, reddit, rooter, theqrl.org, twitter, web.
+
+	// Set a Bitcoin address
+	// Prove your GitHub
+	// Prove your Hacker News
+	// Add a PGP key
+	// Prove your Reddit
+	// Prove your Rooter
+	// Prove your Twitter
+	// Set a Zcash address
+	// Prove your website
+
+	// return h.G().GetProofServices().ProfileProofSuggestions(ctx)
+}
+
+func (h *UserHandler) ProofSuggestions(ctx context.Context, sessionID int) (ret []keybase1.ProofSuggestion, err error) {
+	mctx := libkb.NewMetaContext(ctx, h.G()).WithLogTag("US")
+	defer mctx.CTraceTimed("ProofSuggestions", func() error { return err })()
+	return nil, fmt.Errorf("not implemented")
+}
+
 func (h *UserHandler) FindNextMerkleRootAfterRevoke(ctx context.Context, arg keybase1.FindNextMerkleRootAfterRevokeArg) (ret keybase1.NextMerkleRootRes, err error) {
 	m := libkb.NewMetaContext(ctx, h.G())
 	m = m.WithLogTag("FNMR")
