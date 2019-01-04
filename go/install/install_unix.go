@@ -10,41 +10,50 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/keybase/client/go/libkb"
 )
 
-// Similar to the Brew install on OSX, the Unix install happens in two steps.
-// First, the system package manager installs all the binaries as root. Second,
-// an autostart file needs to be written to the user's home dir, so that
-// Keybase launches when that user logs in. The second step is done the first
-// time the user starts Keybase.
-//
-// ".desktop" files and the ~/.config/autostart directory are part of the
-// freedesktop.org set of standards, which the popular desktop environments
-// like Gnome and KDE all support. See
-// http://standards.freedesktop.org/desktop-entry-spec/latest/.
+// Below paragraph is kept for historical purposes -------------------------------
+// This is no longer what happens.
+// | Similar to the Brew install on OSX, the Unix install happens in two steps.
+// | First, the system package manager installs all the binaries as root. Second,
+// | an autostart file needs to be written to the user's home dir, so that
+// | Keybase launches when that user logs in. The second step is done the first
+// | time the user starts Keybase.
+// | ".desktop" files and the ~/.config/autostart directory are part of the
+// | freedesktop.org set of standards, which the popular desktop environments
+// | like Gnome and KDE all support. See
+// | http://standards.freedesktop.org/desktop-entry-spec/latest/.
+// -------------------------------------------------------------------------------
+// New way: we package /etc/xdg/autostart/keybase.desktop. If a user wishes
+// to toggle off, they put a dummy file in $XDG_CONFIG_HOME/autostart/keybase.desktop.
+// To toggle on, simply delete that file (this will allow them to receive updates too).
+// User can configure this using the command line client.
 
-// TODO: See if upgrading to Electron 1.8.x removes the need to start
-// with XDG_CURRENT_DESKTOP=Unity; see
-// https://github.com/electron/electron/issues/10887 .
-const autostartFileText = `# This file is generated the first time Keybase starts, along with a sentinel
-# file at ~/.config/keybase/autostart_created. As long as the sentinel exists,
-# this file won't be automatically recreated, so you can edit it or delete it
-# as you like. Manually changing autostart settings in the GUI can stomp on
-# your edits here though.
+const autostartFileText = `# This file allows users with desktop environments
+# that respect the XDG autostart standard to autostart Keybase on boot.
+# Users can enable autostart by running
+# $ keybase install autostart on
+# or disable autostart by running
+# $ keybase install autostart off
+# which will toggle this behavior for the current user.
+# If the user wishes, they may explicitly create
+# a custom $XDG_CONFIG_HOME/autostart/keybase.desktop
+# file. Trying to toggle autostart on and off after that
+# will require --force to override the custom setting.
+# These settings will be preserved across updates.
 
 [Desktop Entry]
 Name=Keybase
-Comment=Keybase Filesystem Service and GUI
+Comment=Keybase Service, Filesystem, and GUI
 Type=Application
 Exec=env KEYBASE_AUTOSTART=1 run_keybase
 `
 
-const sentinelFileText = `This file is created the first time Keybase starts, along with
-~/.config/autostart/keybase_autostart.desktop. As long as this
-file exists, the autostart file won't be automatically recreated.
+const historicalAutostartFileText = `#
 `
 
 func autostartDir(context Context) string {
@@ -56,39 +65,25 @@ func autostartFilePath(context Context) string {
 	return path.Join(autostartDir(context), "keybase_autostart.desktop")
 }
 
-func sentinelFilePath(context Context) string {
-	return path.Join(context.GetConfigDir(), "autostart_created")
-}
-
 // AutoInstall installs auto start on unix
 func AutoInstall(context Context, _ string, _ bool, timeout time.Duration, log Log) ( /* newProc */ bool, error) {
-	_, err := os.Stat(sentinelFilePath(context))
-	if err == nil {
-		// The sentinel exists. Don't recreate the autostart file.
+	autostartFilename := autostartFilePath(context)
+	autostartText, err := ioutil.ReadFile(autostartFilename)
+	if err != nil {
+		// There is no autostart file or there was an unexpected error; do
+		// nothing.
+		log.Debug("Unable to read autostart file; err=%s", err)
 		return false, nil
-	} else if !os.IsNotExist(err) {
-		// The error is something unexpected. Return it.
-		return false, err
 	}
-
-	// The sentinel doesn't exist. Create the autostart file, and then create
-	// the sentinel. This might stomp on old user edits one time, but we need
-	// to do that to add in the KEYBASE_AUTOSTART variable.
-	err = os.MkdirAll(autostartDir(context), 0755)
-	if err != nil {
-		return false, err
-	}
-	err = ioutil.WriteFile(autostartFilePath(context), []byte(autostartFileText), 0644)
-	if err != nil {
-		return false, err
-	}
-	err = os.MkdirAll(context.GetConfigDir(), 0755)
-	if err != nil {
-		return false, err
-	}
-	err = ioutil.WriteFile(sentinelFilePath(context), []byte(sentinelFileText), 0644)
-	if err != nil {
-		return false, err
+	isHistoricalFile := autostartText == historicalAutostartFileText
+	if isHistoricalFile {
+		log.Debug("Autostart file same as historical; deleting user local version.")
+		// Delete the file; it is now provided in /etc/xdg/autostart
+		err := os.Remove(autostartFilename)
+		if err != nil {
+			log.Debug("Unable to delete autostart file: err=%s", err)
+			return nil, err
+		}
 	}
 
 	return false, nil

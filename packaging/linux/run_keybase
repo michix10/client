@@ -118,6 +118,8 @@ run_redirector_in_background() {
 start_background() {
   echo Launching keybase service...
 
+  # For system tray icon due to an upstream Electron issue: https://github.com/electron/electron/issues/10887
+  # Also exported in systemd environment generators
   export XDG_CURRENT_DESKTOP=Unity
 
   mkdir -p "$logdir"
