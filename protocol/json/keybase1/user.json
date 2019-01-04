@@ -231,6 +231,63 @@
     },
     {
       "type": "record",
+      "name": "ProfileProofSuggestionsRes",
+      "fields": [
+        {
+          "type": {
+            "type": "array",
+            "items": "ProofSuggestion"
+          },
+          "name": "suggestions"
+        },
+        {
+          "type": "boolean",
+          "name": "showMore"
+        }
+      ]
+    },
+    {
+      "type": "record",
+      "name": "ProfileProofSuggestion",
+      "fields": [
+        {
+          "type": "string",
+          "name": "key"
+        },
+        {
+          "type": "string",
+          "name": "text"
+        },
+        {
+          "type": "string",
+          "name": "icon"
+        }
+      ]
+    },
+    {
+      "type": "record",
+      "name": "ProofSuggestion",
+      "fields": [
+        {
+          "type": "string",
+          "name": "key"
+        },
+        {
+          "type": "string",
+          "name": "text"
+        },
+        {
+          "type": "string",
+          "name": "subtext"
+        },
+        {
+          "type": "string",
+          "name": "icon"
+        }
+      ]
+    },
+    {
+      "type": "record",
       "name": "NextMerkleRootRes",
       "fields": [
         {
@@ -575,6 +632,27 @@
         }
       ],
       "response": null
+    },
+    "profileProofSuggestions": {
+      "request": [
+        {
+          "name": "sessionID",
+          "type": "int"
+        }
+      ],
+      "response": "ProfileProofSuggestionsRes"
+    },
+    "proofSuggestions": {
+      "request": [
+        {
+          "name": "sessionID",
+          "type": "int"
+        }
+      ],
+      "response": {
+        "type": "array",
+        "items": "ProofSuggestion"
+      }
     },
     "findNextMerkleRootAfterRevoke": {
       "request": [
