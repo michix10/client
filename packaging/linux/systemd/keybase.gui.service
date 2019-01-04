@@ -11,6 +11,10 @@ BindsTo=graphical-session.target
 Type=simple
 ExecStart=/opt/keybase/Keybase
 
+# This is for the system tray icon in new versions of Ubuntu that don't use Unity
+# See https://github.com/electron/electron/issues/10887
+Environment=XDG_CURRENT_DESKTOP=Unity
+
 # After starting, we clear the KEYBASE_AUTOSTART variable so the next time
 # systemctl --start keybase.gui is called, it will be maximized.
 # Autostart scripts must set KEYBASE_AUTOSTART=1 in the systemd

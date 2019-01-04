@@ -4,11 +4,6 @@
 # to refresh the generated environment.
 
 # * This section is for the Keybase GUI
-# This is for the system tray icon in new versions of Ubuntu that don't use Unity
-# See https://github.com/electron/electron/issues/10887
-echo XDG_CURRENT_DESKTOP="Unity"
-
-# * This section is for the Keybase GUI
 # Some older distros (e.g. Ubuntu 16.04) don't make X session variables
 # available to user units automatically. Whitelisting them is safer than
 # dumping the entire environment, even though there's a chance we might
