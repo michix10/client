@@ -115,6 +115,9 @@ func ToggleAutostart(context Context, on bool, forAutostart bool) error {
 		text = disabledAutostartFileText
 	}
 
+	if forAutostart {
+		fmt.Println(`Installing autostart file. Manage autostart settings with $ keybase configure autostart.`)
+	}
 	err = ioutil.WriteFile(autostartFilePath(context), []byte(text), 0644)
 	if err != nil {
 		return err
