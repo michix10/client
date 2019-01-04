@@ -358,7 +358,7 @@ func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int
 	defer mctx.CTraceTimed("ProfileProofSuggestions", func() error { return err })()
 
 	// xxx todo hide proofs that the user has up, even if they are failing
-	// xxx todo sort them
+	// xxx todo sort them by priority, including server input
 	// xxx todo hide those below the fold
 	// xxx todo set ret.ShowMore based on the fold
 
@@ -366,45 +366,67 @@ func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int
 	// dns, github, gubble.cloud, gubble.social, hackernews, http, https, reddit, rooter, theqrl.org, twitter, web.
 
 	dummyIcon = "https://keybase.io/images/sigchain/omitted-chainlink.png"
-	oof := []ProofSuggestion{
+	hardSocial := []ProofSuggestion{
 		{
-			Key: "github",
-			ProfileText: "Prove your GitHub",
-			ProfileIcon: dummyIcon,
-			PickerText: "GitHub",
+			Key:           "github",
+			ProfileText:   "Prove your GitHub",
+			ProfileIcon:   dummyIcon,
+			PickerText:    "GitHub",
 			PickerSubtext: "github.com",
-			PickerIcon: dummyIcon,
+			PickerIcon:    dummyIcon,
 		},
 		{
-			Key: "hackernews",
-			ProfileText: "Prove your Hacker News",
-			ProfileIcon: dummyIcon,
-			PickerText: "Hacker News",
+			Key:           "hackernews",
+			ProfileText:   "Prove your Hacker News",
+			ProfileIcon:   dummyIcon,
+			PickerText:    "Hacker News",
 			PickerSubtext: "news.ycombinator.com",
-			PickerIcon: dummyIcon,
+			PickerIcon:    dummyIcon,
 		},
 		{
-			Key: "pgp",
-			ProfileText: "Add a PGP key",
-			ProfileIcon: dummyIcon,
-			PickerText: "PGP key",
-			PickerSubtext: "",
-			PickerIcon: dummyIcon,
+			Key:           "reddit",
+			ProfileText:   "Prove your Reddit",
+			ProfileIcon:   dummyIcon,
+			PickerText:    "Reddit",
+			PickerSubtext: "reddit.com",
+			PickerIcon:    dummyIcon,
 		},
-	// Prove your Hacker News
-		PGP
-	// Add a PGP key
-		Reddit
-	// Prove your Reddit
-		Twitter
-	// Prove your Twitter
 		{
-			Key: "web",
-			ProfileText: "Prove your website",
-			ProfileIcon: dummyIcon,
-			PickerText: "Your own website",
+			Key:           "twitter",
+			ProfileText:   "Prove your Twitter",
+			ProfileIcon:   dummyIcon,
+			PickerText:    "Twitter",
+			PickerSubtext: "twitter.com",
+			PickerIcon:    dummyIcon,
+		},
+	}
+	if rooter {
+		hardSocial = append(hardSocial, ProofSuggestion{
+			Key:           "rooter",
+			ProfileText:   "Prove your Rooter",
+			ProfileIcon:   dummyIcon,
+			PickerText:    "Rooter",
 			PickerSubtext: "",
-			PickerIcon: dummyIcon,
+			PickerIcon:    dummyIcon,
+		})
+	}
+
+	weird := []ProofSuggestion{
+		{
+			Key:           "pgp",
+			ProfileText:   "Add a PGP key",
+			ProfileIcon:   dummyIcon,
+			PickerText:    "PGP key",
+			PickerSubtext: "",
+			PickerIcon:    dummyIcon,
+		},
+		{
+			Key:           "web",
+			ProfileText:   "Prove your website",
+			ProfileIcon:   dummyIcon,
+			PickerText:    "Your own website",
+			PickerSubtext: "",
+			PickerIcon:    dummyIcon,
 		},
 		{
 			Key:           "btc",
@@ -422,16 +444,6 @@ func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int
 			PickerSubtext: "",
 			PickerIcon:    dummyIcon,
 		},
-	}
-	if rooter {
-		oof = append(off, ProofSuggestion{
-			Key: "rooter",
-			ProfileText: "Prove your Rooter",
-			ProfileIcon: dummyIcon,
-			PickerText: "Rooter",
-			PickerSubtext: "",
-			PickerIcon: dummyIcon,
-		})
 	}
 
 	// return h.G().GetProofServices().ProfileProofSuggestions(ctx)
