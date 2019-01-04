@@ -348,9 +348,9 @@ type ProofSuggestion struct {
 	Key           string
 	ProfileText   string // "Prove your Twitter", "Add a PGP key"
 	ProfileIcon   string
-	PickerIcon    string
 	PickerText    string // "Twitter", "Your own website", "octodon.xyz"
 	PickerSubtext string // "twitter.com", "Mastodon instance"
+	PickerIcon    string
 }
 
 func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int) (ret keybase1.ProfileProofSuggestionsRes, err error) {
@@ -358,21 +358,81 @@ func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int
 	defer mctx.CTraceTimed("ProfileProofSuggestions", func() error { return err })()
 
 	// xxx todo hide proofs that the user has up, even if they are failing
+	// xxx todo sort them
 	// xxx todo hide those below the fold
 	// xxx todo set ret.ShowMore based on the fold
 
 	// dns, github, hackernews, http, https, reddit, twitter, web.
 	// dns, github, gubble.cloud, gubble.social, hackernews, http, https, reddit, rooter, theqrl.org, twitter, web.
 
-	// Set a Bitcoin address
-	// Prove your GitHub
+	dummyIcon = "https://keybase.io/images/sigchain/omitted-chainlink.png"
+	oof := []ProofSuggestion{
+		{
+			Key: "github",
+			ProfileText: "Prove your GitHub",
+			ProfileIcon: dummyIcon,
+			PickerText: "GitHub",
+			PickerSubtext: "github.com",
+			PickerIcon: dummyIcon,
+		},
+		{
+			Key: "hackernews",
+			ProfileText: "Prove your Hacker News",
+			ProfileIcon: dummyIcon,
+			PickerText: "Hacker News",
+			PickerSubtext: "news.ycombinator.com",
+			PickerIcon: dummyIcon,
+		},
+		{
+			Key: "pgp",
+			ProfileText: "Add a PGP key",
+			ProfileIcon: dummyIcon,
+			PickerText: "PGP key",
+			PickerSubtext: "",
+			PickerIcon: dummyIcon,
+		},
 	// Prove your Hacker News
+		PGP
 	// Add a PGP key
+		Reddit
 	// Prove your Reddit
-	// Prove your Rooter
+		Twitter
 	// Prove your Twitter
-	// Set a Zcash address
-	// Prove your website
+		{
+			Key: "web",
+			ProfileText: "Prove your website",
+			ProfileIcon: dummyIcon,
+			PickerText: "Your own website",
+			PickerSubtext: "",
+			PickerIcon: dummyIcon,
+		},
+		{
+			Key:           "btc",
+			ProfileText:   "Set a Bitcoin address",
+			ProfileIcon:   dummyIcon,
+			PickerText:    "Bitcoin address",
+			PickerSubtext: "",
+			PickerIcon:    dummyIcon,
+		},
+		{
+			Key:           "zcash",
+			ProfileText:   "Set a Zcash address",
+			ProfileIcon:   dummyIcon,
+			PickerText:    "Zcash address",
+			PickerSubtext: "",
+			PickerIcon:    dummyIcon,
+		},
+	}
+	if rooter {
+		oof = append(off, ProofSuggestion{
+			Key: "rooter",
+			ProfileText: "Prove your Rooter",
+			ProfileIcon: dummyIcon,
+			PickerText: "Rooter",
+			PickerSubtext: "",
+			PickerIcon: dummyIcon,
+		})
+	}
 
 	// return h.G().GetProofServices().ProfileProofSuggestions(ctx)
 }
