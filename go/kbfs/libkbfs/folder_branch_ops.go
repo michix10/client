@@ -6,6 +6,7 @@ package libkbfs
 
 import (
 	"fmt"
+	"github.com/syndtr/goleveldb/leveldb"
 	"os"
 	stdpath "path"
 	"path/filepath"
@@ -435,7 +436,7 @@ func newFolderBranchOps(
 		observers:     observers,
 		serviceStatus: serviceStatus,
 		status: newFolderBranchStatusKeeper(
-			config, nodeCache, quotaUsage),
+			config, nodeCache, quotaUsage, fb.Tlf.Bytes()),
 		mdWriterLock: mdWriterLock,
 		headLock:     headLock,
 		syncLock:     syncLock,
@@ -7964,6 +7965,12 @@ func (fbo *folderBranchOps) InvalidateNodeAndChildren(
 		fbo.observers.batchChanges(ctx, changes, affectedNodeIDs)
 	}
 	return nil
+}
+
+// GetConflictResolutionDB (does not) implement the KBFSOps interface for
+// folderBranchOps.
+func (fbo *folderBranchOps) GetConflictResolutionDB() (db *leveldb.DB) {
+	panic("FolderBranchOps does not implement GetConflictResolutionDB")
 }
 
 // KickoffAllOutstandingRekeys (does not) implement the KBFSOps interface for
